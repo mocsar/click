@@ -1,5 +1,6 @@
 import os
 import re
+from click import Choice, exceptions
 from .utils import echo
 from .parser import split_arg_string
 from .core import MultiCommand, Option
@@ -48,6 +49,31 @@ def do_complete(cli, prog_name):
     except IndexError:
         incomplete = ''
 
+    ctx = resolve_ctx(cli, prog_name, list(cwords))
+    choices = []
+    if ctx.parse_errors:
+        error = ctx.parse_errors[0]
+        if isinstance(error, exceptions.NoSuchOption):
+            if error.possibilities:
+                choices.extend(error.possibilities)
+        elif isinstance(error, exceptions.BadOptionUsage):
+            i = error.message.find('option requires')
+            if i > 0:
+                op = error.message[0:i-1]
+                for param in ctx.command.params:
+                    if not isinstance(param, Option):
+                        continue
+                    if op in param.opts and isinstance(param.type, Choice):
+                        choices.extend(param.type.choices)
+        elif isinstance(error, exceptions.BadParameter):
+            if error.param and isinstance(error.param.type, Choice):
+                 choices.extend(error.param.type.choices)
+
+    if choices:
+        for item in choices:
+            if item.startswith(incomplete):
+                echo(item)
+        return True
     ctx = resolve_ctx(cli, prog_name, args)
     if ctx is None:
         return True

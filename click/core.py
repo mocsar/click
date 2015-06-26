@@ -288,6 +288,7 @@ class Context(object):
 
         self._close_callbacks = []
         self._depth = 0
+        self.parse_errors = []
 
     def __enter__(self):
         self._depth += 1
@@ -788,6 +789,10 @@ class Command(BaseCommand):
             ctx.fail('Got unexpected extra argument%s (%s)'
                      % (len(args) != 1 and 's' or '',
                         ' '.join(map(make_str, args))))
+        else:
+            ctx.parse_errors.append(UsageError('Got unexpected extra argument%s (%s)'
+                     % (len(args) != 1 and 's' or '',
+                        ' '.join(map(make_str, args))), ctx))
 
         ctx.args = args
         return args
@@ -1279,17 +1284,21 @@ class Parameter(object):
             value = self.consume_value(ctx, opts)
             try:
                 value = self.full_process_value(ctx, value)
-            except Exception:
+            except Exception as e:
                 if not ctx.resilient_parsing:
                     raise
+                else:
+                    ctx.parse_errors.append(e)
                 value = None
             if self.callback is not None:
                 try:
                     value = invoke_param_callback(
                         self.callback, ctx, self, value)
-                except Exception:
+                except Exception as e:
                     if not ctx.resilient_parsing:
                         raise
+                    else:
+                        ctx.parse_errors.append(e)
 
         if self.expose_value:
             ctx.params[self.name] = value

@@ -207,9 +207,11 @@ class OptionParser(object):
         try:
             self._process_args_for_options(state)
             self._process_args_for_args(state)
-        except UsageError:
+        except UsageError as e:
             if self.ctx is None or not self.ctx.resilient_parsing:
                 raise
+            else:
+                self.ctx.parse_errors.append(e)
         return state.opts, state.largs, state.order
 
     def _process_args_for_args(self, state):
